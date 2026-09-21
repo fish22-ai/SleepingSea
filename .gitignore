@@ -1,6 +1,7 @@
 .shots/
 .design/
 node_modules/
+push.bat
 Thumbs.db
 .DS_Store
 desktop.ini

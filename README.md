@@ -122,15 +122,14 @@ npx serve .
 
 电脑上打开时会自动变成一个居中的「手机比例」窗口，方便先在桌面上试试手感；手机上打开则是全屏。
 
-### 自动部署到 GitHub Pages
+### 部署到 GitHub Pages
 
-仓库地址：<https://github.com/fish22-ai/SleepingSea>
+仓库地址：<https://github.com/fish22-ai/SleepingSea>，线上地址 <https://fish22-ai.github.io/SleepingSea/>。
 
-推送到 `main` 分支后，`.github/workflows/pages.yml` 会自动做三件事：
+用的是 GitHub 内置的「**Deploy from a branch**」：
 
-1. `node tools/test_store.js` + `node tools/test_migrate.js` —— **测试挂了就直接不部署**，不会把坏版本推到手机上；
-2. 把 `index.html / widget.html / manifest.webmanifest / sw.js / css / js / icons` 打成一个干净的产物（`.shots/`、`.design/`、`tools/` 不会进网站）；
-3. 发布到 GitHub Pages，地址 <https://fish22-ai.github.io/SleepingSea/>。
+- Settings → Pages → Source 选 `Deploy from a branch`，分支 `main`、目录 `/(root)`；
+- 也就是 `main` 分支的根目录**直接就是网站根目录**，推上去 GitHub 自己重建，不需要工作流或任何额外配置。
 
 日常改动流程就是：
 
@@ -138,8 +137,9 @@ npx serve .
 git add -A && git commit -m "改了什么" && git push
 ```
 
-等 Actions 跑完（约半分钟），手机上把应用关掉重开即可拿到新版本。
+等一分钟左右，手机上把应用关掉重开即可拿到新版本。
 
+> **推之前先自己跑一遍测试**（见文末两条命令）。这条路没有自动门禁，坏版本会直接上线到手机上。
 > **改了前端资源记得 bump `sw.js` 里的 `CACHE` 版本号**，否则手机上是旧缓存。SW 本身是「网络优先」，正常情况下刷新就能拿到新文件，bump 版本号只是保险。
 
 ---
@@ -167,8 +167,7 @@ sleep-aquarium/
 ├── icons/                    应用图标（脚本生成，别手改）
 ├── tools/make_icons.py       图标生成脚本（纯标准库）
 ├── tools/test_store.js       结算引擎回归测试（50 项）
-├── tools/test_migrate.js     老数据迁移回归测试（13 项）
-└── .github/workflows/pages.yml   推 main 自动跑测试 + 发布到 Pages
+└── tools/test_migrate.js     老数据迁移回归测试（13 项）
 ```
 
 本地自测（不需要任何 npm 依赖，只要 Node）：
