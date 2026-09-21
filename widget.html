@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#04141f">
+<title>水族馆 · 小组件</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;background:#04141f;overflow:hidden;
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    color:#eaf6fb}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .veil{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(110% 75% at 50% 0%,transparent 40%,rgba(0,0,0,.5))}
+  .bar{
+    position:absolute;left:0;right:0;bottom:0;padding:14px 16px 16px;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+    background:linear-gradient(180deg,transparent,rgba(2,12,18,.82));
+  }
+  .big{font-size:30px;font-weight:650;line-height:1;letter-spacing:.5px}
+  .lbl{font-size:11px;opacity:.62;margin-top:5px;letter-spacing:.6px}
+  .right{text-align:right;font-size:12px;opacity:.82;max-width:60%}
+  .pill{
+    display:inline-block;padding:5px 11px;border-radius:999px;margin-top:6px;
+    background:rgba(79,209,197,.16);border:1px solid rgba(79,209,197,.4);color:#c6fff9;
+  }
+  a.go{position:absolute;inset:0;z-index:5;display:block}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="veil"></div>
+<div class="bar">
+  <div>
+    <div class="big" id="n">0</div>
+    <div class="lbl">条鱼 · 按计划睡 <span id="s">0</span> 晚</div>
+  </div>
+  <div class="right" id="r">—</div>
+</div>
+<a class="go" href="index.html" aria-label="打开睡前水族馆"></a>
+
+<script src="js/store.js"></script>
+<script src="js/aquarium.js"></script>
+<script>
+(function(){
+  Store.init();
+  var results = Store.settleAll();
+
+  var aq = new Aquarium(document.getElementById('c'));
+  aq.setSpecies(Store.SPECIES);
+
+  function paint(){
+    var d = Store.db;
+    aq.setData({ fish:d.fish, plants:d.plants, corals:d.corals, tank:d.tank });
+    var st = Store.stats();
+    document.getElementById('n').textContent = d.fish.length;
+    document.getElementById('s').textContent = st.streak;
+
+    var locked = Store.isLockedNow();
+    var n = Store.getNight(Store.activeNightKey(), false);
+    var r = document.getElementById('r');
+    if (locked) {
+      var t = new Date(n.bed);
+      r.innerHTML = '灯已熄<br><span class="pill">今晚 ' + n.bed + ' 睡</span>';
+    } else if (n && n.lockedAt) {
+      r.innerHTML = '已就位<br><span class="pill">' + n.bed + ' 睡 · ' + n.unlocks.length + ' 次解锁</span>';
+    } else {
+      r.innerHTML = st.streak > 0
+        ? '水色 ' + Math.round(d.tank.health*100) + '%<br><span class="pill">点我定今晚时间</span>'
+        : '<span class="pill">点我定今晚时间</span>';
+    }
+    if (d.tank.gray > 0.4) r.innerHTML += '<br><span style="opacity:.7">水有点浑了</span>';
+  }
+
+  paint();
+  aq.start();
+  setInterval(paint, 60000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) paint(); });
+})();
+</script>
+</body>
+</html>

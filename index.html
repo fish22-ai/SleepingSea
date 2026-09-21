@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#04141f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="睡前水族馆">
+<title>睡前水族馆</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ==================== 1. 鱼缸 ==================== -->
+  <section class="view is-active" id="view-tank">
+    <canvas id="tankCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <header class="hud">
+      <div class="hud-card">
+        <div class="stat"><b id="statFish">0</b><span>条鱼</span></div>
+        <i class="sep"></i>
+        <div class="stat"><b id="statStreak">0</b><span>按计划睡</span></div>
+        <i class="sep"></i>
+        <div class="stat"><b id="statHealth">0%</b><span>水色</span></div>
+      </div>
+      <div class="hud-sub" id="hudSub"></div>
+    </header>
+
+    <div class="flash" id="tankFlash" hidden></div>
+
+    <button class="light-chip" id="btnLight" title="切换日间 / 夜间光照">
+      <span class="lc-ico" id="lightIco">☀️</span><span id="lightTxt">日间</span>
+    </button>
+
+    <button class="goodnight" id="btnGoodnight">
+      <span class="gn-ico">🌙</span><span>晚安 · 开始潜水</span>
+    </button>
+
+    <footer class="dock">
+      <button class="dock-btn" id="btnLog">记录</button>
+      <button class="dock-btn" id="btnSettings">设置</button>
+      <button class="dock-btn" id="btnDex">图鉴</button>
+    </footer>
+  </section>
+
+  <!-- ==================== 2. 睡前设置 ==================== -->
+  <section class="view sheet-view" id="view-bedtime">
+    <header class="nav">
+      <button class="nav-back" data-close>‹ 返回</button>
+      <h1>今晚几点睡</h1>
+      <span class="nav-pad"></span>
+    </header>
+
+    <div class="scroll">
+      <div class="card">
+        <div class="card-title">我打算几点睡着</div>
+        <input type="time" id="inpBed" class="time-big">
+        <div class="chips" id="chipsBed"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">明早几点起</div>
+        <input type="time" id="inpWake" class="time-big">
+        <div class="chips" id="chipsWake"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">提前多久熄灯 <b id="lblLead">30</b> 分钟</div>
+        <input type="range" id="inpLead" min="0" max="120" step="5" value="30" class="range">
+        <div class="hint" id="leadHint"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">今晚备注（可选）</div>
+        <textarea id="inpNote" class="ta" rows="2" placeholder="今天有点累 / 想早点躺"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-title">今晚的安排</div>
+        <div class="plan-grid" id="planGrid"></div>
+        <div class="plan-status" id="planStatus"></div>
+      </div>
+
+      <div class="fineprint">改完自动生效，到熄灯时间页面会自己锁住。半夜急着用手机可以点一下解锁，但每一次都会被如实记进档案，第二天鱼缸的状态由它决定。</div>
+      <div class="gap"></div>
+    </div>
+  </section>
+
+  <!-- ==================== 3. 锁定态 ==================== -->
+  <section class="view" id="view-lock">
+    <div class="lock-bg"></div>
+    <div class="lock-inner">
+      <div class="moon"></div>
+      <div class="lock-label" id="lockLabel">灯已熄</div>
+      <div class="lock-timer" id="lockTimer">00:00:00</div>
+      <div class="lock-sub" id="lockSub">距离起床 ——</div>
+      <div class="lock-tank" id="lockTank"></div>
+
+      <div class="lock-unlock">
+        <button class="tap-unlock" id="btnTapUnlock">解锁 · 点一下</button>
+        <div class="hold-hint" id="holdHint">半夜急着用手机？点一下就开，不用犹豫。解锁会被记一笔，明早鱼缸知道。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 4. 睡眠档案 ==================== -->
+  <section class="view sheet-view" id="view-log">
+    <header class="nav">
+      <button class="nav-back" data-close>‹ 返回</button>
+      <h1>睡眠档案</h1>
+      <span class="nav-pad"></span>
+    </header>
+
+    <div class="scroll">
+      <div class="log-stats" id="logStats"></div>
+      <div class="log-sum" id="logSum"></div>
+
+      <div class="card">
+        <div class="card-title">最近 7 天，每晚睡了多久</div>
+        <div class="wk" id="wkChart"></div>
+        <div class="wk-legend">
+          <span><i class="lg-ok"></i>达成</span>
+          <span><i class="lg-bad"></i>未达成</span>
+        </div>
+      </div>
+
+      <div class="seg" id="logSeg">
+        <button class="seg-btn is-on" data-tab="nights">每一晚</button>
+        <button class="seg-btn" data-tab="events">变动记录</button>
+      </div>
+
+      <div id="tabNights">
+        <div class="actions">
+          <button class="btn btn-ghost btn-block" id="btnAddNight">＋ 补记一晚</button>
+        </div>
+        <div id="nightList" class="list"></div>
+      </div>
+
+      <div id="tabEvents" hidden>
+        <div id="eventList" class="list"></div>
+      </div>
+      <div class="gap"></div>
+    </div>
+  </section>
+
+  <!-- ==================== 5. 图鉴 ==================== -->
+  <section class="view sheet-view" id="view-dex">
+    <header class="nav">
+      <button class="nav-back" data-close>‹ 返回</button>
+      <h1>睡前图鉴</h1>
+      <span class="nav-pad"></span>
+    </header>
+
+    <div class="scroll">
+      <div class="dex-head">
+        <b id="dexCount">0 / 0</b><span>种梦境生灵已被点亮</span>
+      </div>
+      <div class="dex-grid" id="dexGrid"></div>
+      <div class="fineprint" id="dexFoot">睡得越好，鱼缸越热闹，图鉴也会一页一页亮起来。每点亮一种，它就会真的游进你的鱼缸。</div>
+      <div class="gap"></div>
+    </div>
+  </section>
+
+  <!-- ==================== 弹层 ==================== -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-mask" data-modal-close></div>
+    <div class="modal-box" id="modalBox"></div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/aquarium.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+name: Deploy 睡前水族馆 to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 跑一遍纯 Node 回归测试，测试挂了就不部署（省得把坏版本推到手机上）
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 如果仓库还没开 Pages，这一步会顺手把它开成「从 Actions 部署」
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Run store tests
+        run: |
+          node tools/test_store.js
+          node tools/test_migrate.js
+
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          cp -R index.html widget.html manifest.webmanifest sw.js .nojekyll css js icons _site/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
