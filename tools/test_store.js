@@ -25,7 +25,7 @@ function section(t) { console.log('\n' + t); }
 /* ================= 测试 ================= */
 section('1) 初始化');
 Store.init();
-ok(Store.db.fish.length === 3, '初始 3 条鱼', Store.db.fish.length);
+ok(Store.db.fish.length === 0, '开缸是空缸，不送鱼', Store.db.fish.length);
 ok(Store.db.plants.length === 12 && Store.db.corals.length === 6, '初始布景 12 株水草 / 6 块珊瑚');
 ok(Store.db.tank.health === 0.55, '初始水色 0.55');
 
@@ -164,7 +164,7 @@ section('9) 导出 / 恢复');
   ok(obj.app === 'sleep-aquarium' && obj.data && obj.data.nights, '导出结构正确');
   const snapshot = JSON.stringify(obj.data.nights);
   Store.reset();
-  ok(Store.db.fish.length === 3 && Object.keys(Store.db.nights).length === 0, '重置后回到初始');
+  ok(Store.db.fish.length === 0 && Object.keys(Store.db.nights).length === 0, '重置后回到初始（空缸）');
   Store.restore(obj);
   ok(JSON.stringify(Store.db.nights) === snapshot, '恢复后记录一致');
 }
@@ -237,6 +237,52 @@ section('13) 达成 / 未达成的边界');
 
   const st = Store.stats();
   ok(st.met + st.missed === st.total, '达成 + 未达成 = 已结算的夜', st);
+}
+
+section('14) 鱼只来自「达成的夜」');
+{
+  Store.reset();
+  ok(Store.db.fish.length === 0, '开缸一条鱼都不送');
+  ok(Store.COLLECTION.every(c => !Store.db.seen[c.id]), '图鉴开局没有任何已点亮的项');
+  ok(Store.COLLECTION.every(c => c.need.type === 'met' || c.need.type === 'streak' || c.need.type === 'best'),
+    '图鉴条件全部只认达成 / 连续 / 历史最长');
+
+  /* 记 3 夜、全都没达成 —— 就是线上那个「用了 3 天却有 4 条鱼」的情况 */
+  const settle = (key, unlocks) => {
+    const n = Store.getNight(key, true);
+    n.bed = '23:00'; n.wake = '07:00'; n.lead = 30;
+    n.lockedAt = new Date(key + 'T22:30:00').toISOString();
+    n.unlocks = Array.from({ length: unlocks }, (_, i) => ({
+      at: new Date(key + 'T23:20:00').toISOString(), reason: 'x' + i, id: 'd' + i
+    }));
+    n.relocks = []; n.status = 'pending'; n.settledAt = null; n.actualSleepAt = null;
+    Store.applyResult(n, Store.evaluate(n));
+    return n;
+  };
+
+  settle('2026-10-01', 1); settle('2026-10-02', 1); settle('2026-10-03', 2);
+  const st3 = Store.stats();
+  ok(st3.met === 0 && st3.missed === 3, '3 夜全部未达成', { met: st3.met, missed: st3.missed });
+  ok(Store.db.fish.length === 0, '一夜没达成 → 一条鱼都没有', Store.db.fish.length);
+  ok(Store.db.fish.filter(f => f.dull).length === 0, '没鱼也就没有变灰的对象');
+
+  const beforeDex = Store.db.fish.length;
+  Store.refreshCollection();
+  ok(Store.db.fish.length === beforeDex, '图鉴点亮不额外送鱼', Store.db.fish.length);
+
+  /* 达成才有鱼，条数严格等于达成夜数 */
+  const m1 = settle('2026-10-04', 0);
+  ok(m1.status === 'met' && m1.fishDelta === 1, '达成一晚 → 鱼 +1', m1.fishDelta);
+  settle('2026-10-05', 0); settle('2026-10-06', 0);
+  ok(Store.db.fish.length === 3, '达成 3 晚 → 正好 3 条鱼', Store.db.fish.length);
+  ok(Store.db.fish.every(f => Store.db.nights[f.born] && Store.db.nights[f.born].status === 'met'),
+    '每条鱼都能对上一个达成夜');
+
+  /* 把一晚改回未达成，那条鱼要跟着收回去 */
+  const back = Store.getNight('2026-10-04', true);
+  back.unlocks = [{ at: new Date('2026-10-04T23:30:00').toISOString(), reason: '反悔', id: 'z' }];
+  Store.applyResult(back, Store.evaluate(back));
+  ok(back.status === 'missed' && Store.db.fish.length === 2, '达成改成未达成 → 鱼跟着收回', Store.db.fish.length);
 }
 
 console.log('\n========================');

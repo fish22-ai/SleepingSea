@@ -131,7 +131,7 @@
     if (!newly || !newly.length) return;
     renderTank();
     var names = newly.map(function (c) { return Store.SPECIES.filter(function (s) { return s.id === c.sp; })[0].name; });
-    flash('📖 图鉴点亮 · ' + names.join('、') + ' 游进了鱼缸！');
+    flash('📖 解锁新品种 · ' + names.join('、'));
   }
 
   function flash(msg) {

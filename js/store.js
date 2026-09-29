@@ -86,19 +86,49 @@
   }
 
   
+  /* 鱼的唯一来源是「达成的夜」：一条鱼对应一个达成夜，多一条少一条都不对。
+     起步赠鱼、图鉴赠送都不再发鱼，所以这里统一按达成夜重建一次：
+     对不上的鱼（来路不明的赠鱼、改成未达成之后留下的鱼）会被清掉，缺的会补上。
+     只在 init / restore / 结算之后跑，本身是幂等的。 */
+  function reconcileFish(d) {
+    var metKeys = Object.keys(d.nights).filter(function (k) {
+      return d.nights[k] && d.nights[k].status === 'met';
+    }).sort();
+
+    var prev = S.db;
+    S.db = d;   /* 迁移途中 S.db 还没挂上，借给 spawnPool 读一下 d.seen，好按已解锁的品种补鱼 */
+
+    var claimed = {}, kept = [];
+    d.fish.forEach(function (f) {
+      if (!f || !f.born) return;
+      if (metKeys.indexOf(f.born) < 0 || claimed[f.born]) return;
+      if (kept.length >= MAX_FISH) return;
+      claimed[f.born] = true;
+      kept.push(f);
+    });
+    metKeys.forEach(function (k) {
+      if (claimed[k] || kept.length >= MAX_FISH) return;
+      claimed[k] = true;
+      kept.push(makeFish({ born: k }));
+    });
+
+    d.fish = kept;
+    S.db = prev;
+  }
+
   var COLLECTION = [
-    { id: 'clown', sp: 'clown', rar: 1, need: { type: 'total', n: 0 },    desc: '鱼缸的第一位原住民' },
-    { id: 'neon',  sp: 'neon',  rar: 1, need: { type: 'total', n: 3 },    desc: '累计记录 3 夜点亮' },
+    { id: 'clown', sp: 'clown', rar: 1, need: { type: 'met', n: 1 },    desc: '第一晚按计划睡点亮' },
+    { id: 'neon',  sp: 'neon',  rar: 1, need: { type: 'met', n: 3 },    desc: '累计达成 3 晚点亮' },
     { id: 'gold',  sp: 'gold',  rar: 2, need: { type: 'streak', n: 2 },  desc: '连续 2 晚按计划睡点亮' },
     { id: 'angel', sp: 'angel', rar: 2, need: { type: 'met', n: 5 },      desc: '累计 5 晚达成点亮' },
-    { id: 'guppy', sp: 'guppy', rar: 3, need: { type: 'total', n: 10 },   desc: '累计记录 10 夜点亮' },
+    { id: 'guppy', sp: 'guppy', rar: 3, need: { type: 'met', n: 8 },    desc: '累计达成 8 晚点亮' },
     { id: 'tang',  sp: 'tang',  rar: 3, need: { type: 'best', n: 5 },     desc: '历史最长连续 5 晚点亮' },
     { id: 'rosey', sp: 'rosey', rar: 4, need: { type: 'met', n: 12 },     desc: '累计 12 晚达成点亮' },
     { id: 'seahorse', sp: 'seahorse', rar: 2, need: { type: 'streak', n: 4 },  desc: '连续 4 晚按计划睡点亮' },
     { id: 'jelly', sp: 'jelly', rar: 2, need: { type: 'streak', n: 6 },    desc: '连续 6 晚按计划睡点亮' },
-    { id: 'squid', sp: 'squid', rar: 3, need: { type: 'total', n: 20 },   desc: '累计记录 20 夜点亮' },
+    { id: 'squid', sp: 'squid', rar: 3, need: { type: 'met', n: 20 },   desc: '累计达成 20 晚点亮' },
     { id: 'puffer', sp: 'puffer', rar: 3, need: { type: 'met', n: 10 },   desc: '累计 10 晚达成点亮' },
-    { id: 'octo', sp: 'octo', rar: 4, need: { type: 'total', n: 30 },     desc: '累计记录 30 夜点亮' }
+    { id: 'octo', sp: 'octo', rar: 4, need: { type: 'met', n: 30 },     desc: '累计达成 30 晚点亮' }
   ];
   var RARITY = { 1: '常见', 2: '稀有', 3: '史诗', 4: '传说' };
   var COND_TEXT = { total: '累计记录', streak: '当前连续按计划睡', met: '累计达成', best: '历史最长连续' };
@@ -140,7 +170,7 @@
         lockLead: 30,
         lightMode: 'auto'
       },      tank: { health: 0.55, gray: 0.06 },
-      fish: [makeFish(), makeFish(), makeFish()],
+      fish: [],
       plants: dec.plants,
       corals: dec.corals,
       nights: {},
@@ -169,6 +199,7 @@
     });
     if (!Array.isArray(d.events)) d.events = [];
     if (!d.seen || typeof d.seen !== 'object') d.seen = {};
+    reconcileFish(d);   /* 老档里白送的鱼 / 对不上达成夜的鱼，在这里一次清掉 */
     d.version = 1;
     return d;
   }
@@ -404,22 +435,14 @@
       n.reasonText = res.text;
       n.fishDelta = 0;
       n.settledAt = iso();
+      var fishBefore = d.fish.length;
 
       if (res.level === 'met') {
-        var add = 1;
-        var added = 0;
-        for (var i = 0; i < add; i++) {
-          if (d.fish.length >= MAX_FISH) break;
-          d.fish.push(makeFish({ born: n.key }));
-          added++;
-        }
-        n.fishDelta = added;
         d.tank.health = clamp(d.tank.health + 0.055, 0.05, 1);
         d.tank.gray = clamp(d.tank.gray - 0.09, 0, 1);
         d.plants.forEach(function (p) { p.growth = clamp(p.growth + 0.075, 0.05, 1.25); });
         d.corals.forEach(function (c) { c.growth = clamp(c.growth + 0.06, 0.05, 1.25); });
         d.fish.forEach(function (f) { f.dull = false; });
-        S.log('result', '达成了这一夜 · 鱼 +' + added, { night: n.key, level: res.level });
 
       } else {
         d.tank.health = clamp(d.tank.health - 0.045, 0.05, 1);
@@ -429,6 +452,15 @@
         });
         d.corals.forEach(function (c) { c.growth = clamp(c.growth - 0.045, 0.05, 1.25); });
         S.dullSome(1);
+      }
+
+      /* 加鱼/去鱼交给这一处，改记录时也能跟着回到正确条数 */
+      reconcileFish(d);
+      n.fishDelta = d.fish.length - fishBefore;
+
+      if (res.level === 'met') {
+        S.log('result', '达成了这一夜 · 鱼 +' + n.fishDelta, { night: n.key, level: res.level });
+      } else {
         S.log('result', '这一夜没达成 · 鱼缸暗了一点', { night: n.key, level: res.level });
       }
       S.save();
@@ -522,10 +554,8 @@
         if (S.db.seen[c.id]) return;
         if ((keyOf[c.need.type] || 0) >= c.need.n) {
           S.db.seen[c.id] = { at: iso() };
-          if (S.db.fish.length < MAX_FISH) {
-            S.db.fish.push(makeFish({ species: c.sp, note: '图鉴点亮' }));
-          }
-          S.log('dex', '图鉴点亮 · ' + speciesName(c.sp) + ' 游进了鱼缸', { dex: c.id });
+          /* 图鉴只解锁「以后能出现哪些鱼种」，本身不送鱼 */
+          S.log('dex', '解锁新品种 · ' + speciesName(c.sp), { dex: c.id });
           newly.push(c);
         }
       });

@@ -14,11 +14,21 @@ const legacyNight = (key, status) => ({
   actualSleepAt: null, actualWakeAt: null, status: status, reasonText: '', fishDelta: 0, settledAt: null, manual: false
 });
 
+/* 老档里的脏数据：白送的鱼 + 图鉴送的鱼，一个都不对应达成夜 */
+const strayFish = (born, note) => ({
+  id: 'f' + born + (note || ''), species: 'clown', name: '小丑鱼', size: 1, hue: 0,
+  born: born, note: note || '', dull: false
+});
+
 const legacy = {
   version: 1, cfgV2: true,
   config: { defaultBed: '23:00', defaultWake: '07:00', lockLead: 30, rewardPerNight: 3, settleDelay: 180 },
   tank: { health: 0.5, gray: 0.1 },
-  fish: [], plants: [], corals: [], events: [], seen: {},
+  fish: [
+    strayFish('2026-09-21'), strayFish('2026-09-21'), strayFish('2026-09-21'),
+    strayFish('2026-09-17', '图鉴点亮')
+  ],
+  plants: [], corals: [], events: [], seen: {},
   nights: {
     '2026-09-19': legacyNight('2026-09-19', 'pending'),
     '2026-09-18': legacyNight('2026-09-18', 'perfect'),
@@ -45,6 +55,11 @@ ok(Store.db.nights['2026-09-18'].status === 'met', "老 perfect → met", Store.
 ok(Store.db.nights['2026-09-17'].status === 'missed', "老 minor → missed", Store.db.nights['2026-09-17'].status);
 ok(Store.db.nights['2026-09-16'].status === 'missed', "老 broken → missed", Store.db.nights['2026-09-16'].status);
 ok(Store.db.nights['2026-09-19'].status === 'pending', '未结算的夜不受影响');
+
+/* 白送的鱼、图鉴送的鱼、对不上达成夜的鱼，迁移时全部清掉，只按达成夜重建 */
+ok(Store.db.fish.length === 1, '4 条来路不明的鱼被清掉，只留达成夜对应的那条', Store.db.fish.length);
+ok(Store.db.fish.every(f => f.born === '2026-09-18'),
+  '留下的那条对得上唯一达成的夜', Store.db.fish.map(f => f.born));
 
 /* 把时钟拨到「起床后 1 秒」——老逻辑要等到 +180 分钟才结算 */
 const wakeMs = new Date(2026, 8, 20, 7, 0, 0).getTime();
