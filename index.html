@@ -162,8 +162,15 @@
       <div class="dex-head">
         <b id="dexCount">0 / 0</b><span>种梦境生灵已被点亮</span>
       </div>
+
+      <div class="card" id="dexShowCard" hidden>
+        <div class="card-title">鱼缸里显示几条</div>
+        <input type="range" id="inpShowFish" min="1" max="20" step="1" value="20" class="range">
+        <div class="hint" id="showFishHint"></div>
+      </div>
+
       <div class="dex-grid" id="dexGrid"></div>
-      <div class="fineprint" id="dexFoot">睡得越好，鱼缸越热闹，图鉴也会一页一页亮起来。每点亮一种，它就会真的游进你的鱼缸。</div>
+      <div class="fineprint" id="dexFoot">图鉴只解锁鱼种：点亮之后，以后达成的夜里才可能出现它。鱼只来自达成的夜，一夜一条。</div>
       <div class="gap"></div>
     </div>
   </section>

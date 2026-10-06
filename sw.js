@@ -1,4 +1,4 @@
-var CACHE = 'sleep-aquarium-v16';
+var CACHE = 'sleep-aquarium-v17';
 var ASSETS = [
   './',
   './index.html',

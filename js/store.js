@@ -6,7 +6,7 @@
   var DAY_START_HOUR = 12;
   var LIGHT_DAY_FROM = 6.5;
   var LIGHT_DAY_TO = 18.5;
-  var MAX_FISH = 24;
+  var MAX_FISH = 20;
   var LATE_LIMIT_MIN = 40;
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -168,7 +168,8 @@
         defaultBed: '23:00',
         defaultWake: '07:00',
         lockLead: 30,
-        lightMode: 'auto'
+        lightMode: 'auto',
+        showFish: 0        /* 0 = 鱼缸里全部显示；>0 = 只显示最近这么多条 */
       },      tank: { health: 0.55, gray: 0.06 },
       fish: [],
       plants: dec.plants,
@@ -187,6 +188,8 @@
     delete d.config.rewardPerNight;
     delete d.config.settleDelay;
     delete d.cfgV2;
+    var sf = parseInt(d.config.showFish, 10) || 0;
+    d.config.showFish = (sf > 0 && sf < MAX_FISH) ? sf : 0;
     if (!Array.isArray(d.fish)) d.fish = base.fish;
     if (!Array.isArray(d.plants) || !d.plants.length) d.plants = base.plants;
     if (!Array.isArray(d.corals) || !d.corals.length) d.corals = base.corals;
@@ -298,6 +301,25 @@
     lightModeSetting: function () {
       var m = S.db.config.lightMode;
       return (m === 'day' || m === 'night') ? m : 'auto';
+    },
+
+    /* 鱼缸里显示几条：只影响画面上游几条，数据一条都不动 */
+    showFishSetting: function () {
+      var v = parseInt(S.db.config.showFish, 10) || 0;
+      return (v > 0 && v < MAX_FISH) ? v : 0;   /* 0 = 全部 */
+    },
+
+    setShowFish: function (n) {
+      var v = parseInt(n, 10) || 0;
+      S.db.config.showFish = v <= 0 ? 0 : clamp(v, 1, MAX_FISH - 1);
+      S.save();
+      return S.db.config.showFish;
+    },
+
+    displayFish: function () {
+      var lim = S.showFishSetting();
+      if (!lim || S.db.fish.length <= lim) return S.db.fish;
+      return S.db.fish.slice(S.db.fish.length - lim);   /* 显示最新的那几条 */
     },
 
     lightMode: function () {

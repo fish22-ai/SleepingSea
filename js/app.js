@@ -162,8 +162,7 @@
 
   function renderTank(reset) {
     var d = Store.db;
-    if (reset || !aq.fish.length) aq.setData({ fish: d.fish, plants: d.plants, corals: d.corals, tank: d.tank });
-    else aq.setData({ fish: d.fish, plants: d.plants, corals: d.corals, tank: d.tank });
+    aq.setData({ fish: Store.displayFish(), plants: d.plants, corals: d.corals, tank: d.tank });
     renderHud();
   }
 
@@ -383,7 +382,7 @@
     if (lockTimer) clearInterval(lockTimer);
     tickLock();
     lockTimer = setInterval(tickLock, 1000);
-    aq.setData({ fish: Store.db.fish, plants: Store.db.plants, corals: Store.db.corals, tank: Store.db.tank, mood: 'night', lightsOut: true });
+    aq.setData({ fish: Store.displayFish(), plants: Store.db.plants, corals: Store.db.corals, tank: Store.db.tank, mood: 'night', lightsOut: true });
     applyLightMode();
   }
   function stopLockUI() {
@@ -422,6 +421,8 @@
     var unlocked = list.filter(function (c) { return c.unlocked; }).length;
     $('#dexCount').textContent = unlocked + ' / ' + list.length;
 
+    renderDexShowFish();
+
     $('#dexGrid').innerHTML = list.map(function (c) {
       var tag = '<span class="dtag rar-' + c.rar + '">' + Store.RARITY[c.rar] + '</span>';
       if (c.unlocked) {
@@ -446,6 +447,31 @@
       var cv = el.querySelector('canvas');
       if (cv) Aquarium.thumbnail(cv, el.dataset.sp);
     });
+  }
+
+  /* 图鉴页顶部的「鱼缸里显示几条」——只调画面上游几条，鱼一条不少 */
+  function renderDexShowFish() {
+    var card = $('#dexShowCard');
+    var total = Store.db.fish.length;
+    card.hidden = total < 2;
+    if (total < 2) return;
+
+    var lim = Store.showFishSetting();
+    var inp = $('#inpShowFish');
+    var hint = $('#showFishHint');
+    inp.max = total;
+    inp.value = lim || total;
+    hint.textContent = lim
+      ? '只游最新的 ' + lim + ' 条（一共 ' + total + ' 条）'
+      : '一共 ' + total + ' 条全都在游';
+
+    inp.oninput = function () {
+      var v = parseInt(inp.value, 10) || total;
+      Store.setShowFish(v >= total ? 0 : v);   /* 拉到头就是全部 */
+      hint.textContent = v >= total
+        ? '一共 ' + total + ' 条全都在游'
+        : '只游最新的 ' + v + ' 条（一共 ' + total + ' 条）';
+    };
   }
 
   var WD_CH = ['日', '一', '二', '三', '四', '五', '六'];

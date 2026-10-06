@@ -285,6 +285,54 @@ section('14) 鱼只来自「达成的夜」');
   ok(back.status === 'missed' && Store.db.fish.length === 2, '达成改成未达成 → 鱼跟着收回', Store.db.fish.length);
 }
 
+section('15) 鱼缸上限 20 条 + 显示条数可调');
+{
+  Store.reset();
+  ok(Store.MAX_FISH === 20, '鱼缸上限是 20 条', Store.MAX_FISH);
+  ok(Store.showFishSetting() === 0, '默认是「全部显示」');
+  ok(Store.displayFish().length === 0, '空缸时也没什么可显示');
+
+  const settle = (key, unlocks) => {
+    const n = Store.getNight(key, true);
+    n.bed = '23:00'; n.wake = '07:00'; n.lead = 30;
+    n.lockedAt = new Date(key + 'T22:30:00').toISOString();
+    n.unlocks = Array.from({ length: unlocks }, (_, i) => ({
+      at: new Date(key + 'T23:20:00').toISOString(), reason: 'x' + i, id: 'd' + i
+    }));
+    n.relocks = []; n.status = 'pending'; n.settledAt = null; n.actualSleepAt = null;
+    Store.applyResult(n, Store.evaluate(n));
+    return n;
+  };
+
+  for (let i = 1; i <= 24; i++) settle('2026-09-' + String(i).padStart(2, '0'), 0);
+  ok(Store.stats().met === 24, '24 个达成夜', Store.stats().met);
+  ok(Store.db.fish.length === 20, '鱼封顶在 20 条', Store.db.fish.length);
+  ok(Store.displayFish().length === 20, '没设限制时 20 条都在游', Store.displayFish().length);
+
+  Store.setShowFish(6);
+  ok(Store.showFishSetting() === 6, '设置成只显示 6 条', Store.showFishSetting());
+  ok(Store.displayFish().length === 6, '鱼缸里只画 6 条', Store.displayFish().length);
+  const shown = Store.displayFish(), owned = Store.db.fish;
+  ok(shown[shown.length - 1] === owned[owned.length - 1] &&
+     shown[0] === owned[owned.length - 6], '显示的是最新的那几条');
+  ok(Store.stats().fish === 20, '只是少画几条，记录里的鱼一条不少', Store.stats().fish);
+
+  Store.setShowFish(0);
+  ok(Store.displayFish().length === 20, '设回 0 = 全部显示');
+
+  Store.setShowFish(999);
+  ok(Store.showFishSetting() === 19, '越界的值被夹到上限内', Store.showFishSetting());
+  Store.setShowFish(-3);
+  ok(Store.showFishSetting() === 0, '负数当成「全部」', Store.showFishSetting());
+
+  /* 老档里存了乱七八糟的显示条数 */
+  Store.restore({ nights: {}, config: { showFish: 999 } });
+  ok(Store.showFishSetting() === 0, '迁移时把越界的显示条数复位成「全部」');
+  Store.restore({ nights: {}, config: { showFish: 5 } });
+  ok(Store.showFishSetting() === 5, '迁移保留合法的显示条数');
+  ok(Store.db.fish.length === 0, '恢复的档里没有来路不明的鱼', Store.db.fish.length);
+}
+
 console.log('\n========================');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 console.log('========================');
